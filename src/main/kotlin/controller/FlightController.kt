@@ -4,9 +4,12 @@ import io.ktor.http.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import service.FlightService
+import io.ktor.util.logging.*
 
 
-fun Route.flightRoutes(service: FlightService) {
+fun Route.flightRoutes(service: FlightService, log: Logger) {
+
+    log.info("Setting up flight routes")
 
     route("/flights") {
         get("/airline/{icao}") {

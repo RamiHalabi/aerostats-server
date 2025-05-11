@@ -1,7 +1,9 @@
 package com.ramihalabi.config
 
+import AuthClient
 import com.ramihalabi.event.Event
 import com.ramihalabi.event.EventBus
+import config.configureRouting
 import io.ktor.server.application.*
 import repository.FlightDataRepository
 import service.FR24API
@@ -26,7 +28,8 @@ fun Application.module() {
     val api = FR24API()
     val repository = FlightDataRepository()
     val service = FlightService(api, repository)
-    configureRouting(service)
+    val authClient = AuthClient()
+    configureRouting(authClient, service, log)
     configureMonitoring()
     configureSerialization()
     configureSecurity()

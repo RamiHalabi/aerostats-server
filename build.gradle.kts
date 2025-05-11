@@ -20,8 +20,10 @@ repositories {
 }
 
 dependencies {
-    implementation("io.insert-koin:koin-ktor:3.4.0")
-    implementation("io.insert-koin:koin-logger-slf4j:3.4.0")
+    implementation(platform("io.github.jan-tennert.supabase:bom:3.1.4"))
+    implementation("io.github.jan-tennert.supabase:postgrest-kt")
+    implementation("io.github.jan-tennert.supabase:auth-kt")
+    implementation("io.github.jan-tennert.supabase:realtime-kt")
     implementation(libs.ktor.server.call.logging)
     implementation(libs.ktor.server.content.negotiation)
     implementation(libs.ktor.server.core)
@@ -37,5 +39,4 @@ dependencies {
     testImplementation(libs.kotlin.test.junit)
     implementation( "org.slf4j:slf4j-api:2.0.9")
     implementation( "ch.qos.logback:logback-classic:1.4.11")
-
 }
