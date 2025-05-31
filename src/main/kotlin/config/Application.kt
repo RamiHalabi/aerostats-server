@@ -3,6 +3,7 @@ package com.ramihalabi.config
 import AuthClient
 import com.ramihalabi.event.Event
 import com.ramihalabi.event.EventBus
+import config.configureMonitoring
 import config.configureRouting
 import io.ktor.server.application.*
 import repository.FlightDataRepository
@@ -15,20 +16,18 @@ fun main(args: Array<String>) {
 }
 
 fun Application.module() {
-
     log.info("Application module starting...")
-
     EventBus.subscribe { event ->
         when (event) {
-            is Event.AirlineSaved -> log.info("New airline saved: ${event.airline.name}")
-            is Event.FlightSaved -> log.info("New flight saved: ${event.flight.flight}")
-            is Event.TrackSaved -> log.info("New track saved: ${event.track.tracks}")
+            is Event.FlightSaved -> log.info(this.javaClass.name, "Flight saved: ${event.fr24_id}")
+            is Event.FlightAlreadyKnown -> TODO()
+            is Event.FlightSaveFailed -> TODO()
         }
     }
     val api = FR24API()
-    val repository = FlightDataRepository()
-    val service = FlightService(api, repository)
     val authClient = AuthClient()
+    val repository = FlightDataRepository(authClient)
+    val service = FlightService(api, repository)
     configureRouting(authClient, service, log)
     configureMonitoring()
     configureSerialization()

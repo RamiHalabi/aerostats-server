@@ -7,8 +7,6 @@ import model.FlightDataModel
 import model.FlightTracksModel
 import repository.FlightDataRepository
 
-import model.*
-
 class FlightService(
     private val api: FR24API,
     private val repository: FlightDataRepository
@@ -17,16 +15,22 @@ class FlightService(
         return repository.getAirlineByIcao(icao)
             ?: api.airlinesLight(icao)?.also {
                 repository.saveAirline(it)
-                EventBus.post(Event.AirlineSaved(it))
             }
             ?: AirlinesLightModel(icao = "null", iata = "null", name = "null")
     }
 
-    suspend fun getFlightData(flightNumber: String): FlightDataModel? {
-        return repository.getFlightByNumber(flightNumber)
+    suspend fun getFlightData(flightNumber: String, authToken: String): FlightDataModel? {
+        return repository.getFlightByNumber(flightNumber, authToken)
             ?: api.flightPositionsFull(flightNumber)?.also {
-                repository.saveFlight(it)
-                EventBus.post(Event.FlightSaved(it))
+                repository.saveFlight(it, authToken)
+                    .onSuccess { result ->
+                        println("✅ Saved Flight: ${result.flight}")
+                        EventBus.post(Event.FlightSaved(result.flight.fr24_id))
+                    }
+                    .onFailure { result ->
+                        println("❌ Failed to save flight: ${result.message}")
+                        EventBus.post(Event.FlightSaveFailed(it, result))
+                    }
             }
     }
 
@@ -34,7 +38,6 @@ class FlightService(
         return repository.getTrack(id)
             ?: api.flightTracks(id)?.also {
                 repository.saveTrack(it)
-                EventBus.post(Event.TrackSaved(it))
             }
     }
 }

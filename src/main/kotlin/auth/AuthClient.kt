@@ -4,20 +4,19 @@ import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.slf4j.LoggerFactory
 
 class AuthClient {
 
-    private val logger = LoggerFactory.getLogger(AuthClient::class.java)
-
-    private fun createUnauthenticatedClient(): SupabaseClient {
+     fun createUnauthenticatedClient(): SupabaseClient {
         return createSupabaseClient(
             supabaseUrl = Config.SUPABASE_URL,
             supabaseKey = Config.SUPABASE_KEY
         ) {
+            install(Postgrest)
             install(Auth) {
                 // no session here
             }

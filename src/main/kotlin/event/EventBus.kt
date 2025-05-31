@@ -8,7 +8,9 @@ object EventBus {
     private val listeners = mutableListOf<(Event) -> Unit>()
 
     fun post(event: Event) {
-        listeners.forEach { it(event) }
+        listeners.forEach { it(event)
+        print(it)
+        }
     }
 
     fun subscribe(listener: (Event) -> Unit) {
@@ -17,7 +19,7 @@ object EventBus {
 }
 
 sealed class Event {
-    data class AirlineSaved(val airline: AirlinesLightModel) : Event()
-    data class FlightSaved(val flight: FlightDataModel) : Event()
-    data class TrackSaved(val track: FlightTracksModel) : Event()
+    data class FlightSaved(val fr24_id: String) : Event()
+    data class FlightAlreadyKnown(val flight: FlightDataModel) : Event()
+    data class FlightSaveFailed(val flight: FlightDataModel, val error: Throwable) : Event()
 }

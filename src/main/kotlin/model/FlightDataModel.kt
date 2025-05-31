@@ -10,7 +10,6 @@ data class FlightDataResponse(
 
 @Serializable
 data class FlightDataModel(
-    val unique_id: String = UUID.randomUUID().toString(),
     val fr24_id: String,
     val flight: String,
     val callsign: String,
@@ -25,7 +24,6 @@ data class FlightDataModel(
 
     override fun toString(): String {
         return """
-        ${unique_id}
         Flight ID: $fr24_id
         Flight Number: $flight
         Callsign: $callsign
