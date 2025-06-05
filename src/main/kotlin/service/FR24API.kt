@@ -1,13 +1,11 @@
 package service
 
 import config.Config
-import model.AirlinesLightModel
-import model.FlightDataModel
-import model.FlightDataResponse
-import model.FlightTracksModel
+import controller.FlightDataRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import model.*
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -22,6 +20,7 @@ class FR24API {
         )
         private val AIRLINES_LIGHT_URL = "/static/airlines/{icao}/light"
         private val FLIGHT_POSITIONS_FULL_URL = "/live/flight-positions/full?callsigns={flight}&limit=100"
+        private val FLIGHT_SUMMARY_FULL_URL = "/flight-summary/full?flight_ids={flightId}"
         private val FLIGHT_TRACKS_URL = "/flight-tracks?flight_id={flightID}&limit=100"
         private val json = Json {
             prettyPrint = true
@@ -55,9 +54,14 @@ class FR24API {
         return response
     }
 
-    suspend fun flightPositionsFull(flight: String): FlightDataModel? {
-        val url = "$BASE_URL${FLIGHT_POSITIONS_FULL_URL.replace("{flight}", flight)}"
+    suspend fun flightPositionsFull(flight: FlightDataRequest): FlightDataModel? {
+        val url = "$BASE_URL${FLIGHT_POSITIONS_FULL_URL.replace("{flight}", flight.callsign)}"
         val response = GET(url)?.let { json.decodeFromString<FlightDataResponse>(it) }
+        return response?.data?.firstOrNull()
+    }
+    suspend fun flightSummaryFull(flight: String): FlightSummaryModel? {
+        val url = "$BASE_URL${FLIGHT_SUMMARY_FULL_URL.replace("{flightId}", flight)}"
+        val response = GET(url)?.let { json.decodeFromString<FlightSummaryResponse>(it) }
         return response?.data?.firstOrNull()
     }
 
