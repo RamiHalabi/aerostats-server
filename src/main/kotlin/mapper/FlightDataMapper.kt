@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 import model.FlightDataModel
 
 @Serializable
-data class FlightData(
+data class FlightDataEntity(
     val flight_id: String,
     val flight_number: String,
     val callsign: String,
@@ -14,12 +14,13 @@ data class FlightData(
     val operating_as: String,
     val orig_icao: String,
     val dest_icao: String,
-    val date_added: String
+    val date_added: String,
+    var date: String
 )
 
 object FlightDataMapper {
-    fun fromModel(model: FlightDataModel): FlightData {
-        return FlightData(
+    fun fromModel(model: FlightDataModel): FlightDataEntity {
+        return FlightDataEntity(
             flight_id = model.fr24_id,
             flight_number = model.flight,
             callsign = model.callsign,
@@ -29,7 +30,23 @@ object FlightDataMapper {
             operating_as = model.operating_as,
             orig_icao = model.orig_icao,
             dest_icao = model.dest_icao,
-            date_added = model.timestamp // Ensure consistent format, e.g. ISO 8601 if needed
+            date_added = model.timestamp,
+            date = model.timestamp
+        )
+    }
+
+    fun fromEntity(entity: FlightDataEntity): FlightDataModel {
+        return FlightDataModel(
+            fr24_id = entity.flight_id,
+            flight = entity.flight_number,
+            callsign = entity.callsign,
+            type = entity.aircraft,
+            reg = entity.registration,
+            painted_as = entity.painted_as,
+            operating_as = entity.operating_as,
+            orig_icao = entity.orig_icao,
+            dest_icao = entity.dest_icao,
+            timestamp = entity.date_added
         )
     }
 }

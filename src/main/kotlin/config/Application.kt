@@ -1,14 +1,15 @@
 package com.ramihalabi.config
 
 import AuthClient
-import com.ramihalabi.event.Event
-import com.ramihalabi.event.EventBus
+import event.Event
+import event.EventBus
 import config.configureMonitoring
 import config.configureRouting
 import io.ktor.server.application.*
 import repository.FlightDataRepository
 import service.FR24API
 import service.FlightService
+import util.DateUtil
 
 
 fun main(args: Array<String>) {
@@ -26,7 +27,8 @@ fun Application.module() {
     }
     val api = FR24API()
     val authClient = AuthClient()
-    val repository = FlightDataRepository(authClient)
+    val dateUtil = DateUtil()
+    val repository = FlightDataRepository(authClient, dateUtil)
     val service = FlightService(api, repository)
     configureRouting(authClient, service, log)
     configureMonitoring()

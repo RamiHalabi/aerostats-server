@@ -20,7 +20,7 @@ data class FlightDataModel(
     val operating_as: String,
     val orig_icao: String,
     val dest_icao: String,
-) {
+): FlightData() {
 
     override fun toString(): String {
         return """

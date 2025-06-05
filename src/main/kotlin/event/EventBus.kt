@@ -1,8 +1,6 @@
-package com.ramihalabi.event
+package event
 
-import model.AirlinesLightModel
-import model.FlightDataModel
-import model.FlightTracksModel
+import model.*
 
 object EventBus {
     private val listeners = mutableListOf<(Event) -> Unit>()
@@ -21,5 +19,5 @@ object EventBus {
 sealed class Event {
     data class FlightSaved(val fr24_id: String) : Event()
     data class FlightAlreadyKnown(val flight: FlightDataModel) : Event()
-    data class FlightSaveFailed(val flight: FlightDataModel, val error: Throwable) : Event()
+    data class FlightSaveFailed(val flight: FlightData, val error: Throwable) : Event()
 }

@@ -1,10 +1,9 @@
 package service
 
-import com.ramihalabi.event.Event
-import com.ramihalabi.event.EventBus
-import model.AirlinesLightModel
-import model.FlightDataModel
-import model.FlightTracksModel
+import event.Event
+import event.EventBus
+import controller.FlightDataRequest
+import model.*
 import repository.FlightDataRepository
 
 class FlightService(
@@ -19,19 +18,33 @@ class FlightService(
             ?: AirlinesLightModel(icao = "null", iata = "null", name = "null")
     }
 
-    suspend fun getFlightData(flightNumber: String, authToken: String): FlightDataModel? {
-        return repository.getFlightByNumber(flightNumber, authToken)
-            ?: api.flightPositionsFull(flightNumber)?.also {
+    suspend fun getFlightData(flight: FlightDataRequest, authToken: String): FlightDataModel? {
+        return repository.getFlight(flight)
+            ?: api.flightPositionsFull(flight)?.also {
                 repository.saveFlight(it, authToken)
                     .onSuccess { result ->
-                        println("✅ Saved Flight: ${result.flight}")
-                        EventBus.post(Event.FlightSaved(result.flight.fr24_id))
+                        println("✅ Saved Flight Data: ${result.flight}")
+                        EventBus.post(Event.FlightSaved(result.flight.toString()))
                     }
                     .onFailure { result ->
-                        println("❌ Failed to save flight: ${result.message}")
+                        println("❌ Failed to save flight data: ${result.message}")
                         EventBus.post(Event.FlightSaveFailed(it, result))
                     }
             }
+    }
+
+    suspend fun getFlightSummary(flightId: String, authToken: String): FlightSummaryModel? {
+        return repository.getFlightSummary(flightId) ?: api.flightSummaryFull(flightId)?. also {
+            repository.saveFlightSummary(it, authToken)
+                .onSuccess { result ->
+                    println("✅ Saved Flight Summary: ${result.flight}")
+                    EventBus.post(Event.FlightSaved(result.flight.toString()))
+                }
+                .onFailure { result ->
+                    println("❌ Failed to save flight summary: ${result.message}")
+                    EventBus.post(Event.FlightSaveFailed(it, result))
+                }
+        }
     }
 
     suspend fun getFlightTrack(id: String): FlightTracksModel? {
