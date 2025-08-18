@@ -8,86 +8,133 @@ import service.FlightService
 import io.ktor.util.logging.*
 import plugin.authenticationPlugin
 import plugin.getUserId
+import util.FlightRequest
 
-
-@kotlinx.serialization.Serializable
-data class FlightDataRequest(
-    val callsign: String,
-    val origIcao: String,
-    val destIcao: String,
-    val date: String,
-)
-
-data class FlightSummaryRequest(val flightId: String)
-
-fun Route.flightRoutes(service: FlightService, log: Logger) {
-
-    log.info("Setting up flight routes")
-
+/**
+ * Configures the routing for flight-related endpoints.
+ *
+ * This method defines several routes under the `/flights` path for managing flight data.
+ * The routes include endpoints for fetching airline flights by ICAO code, retrieving flight summaries,
+ * saving flight summaries, and fetching all flights for a user. It also installs an authentication plugin
+ * to ensure that requests contain valid user tokens.
+ *
+ * @param flightService An instance of [FlightService] that provides business logic for handling flight-related operations.
+ * @param logger A [Logger] used for logging information and errors during request handling.
+ */
+fun Route.flightRoutes(flightService: FlightService, logger: Logger) {
+    logger.info("Setting up flight routes")
     route("/flights") {
         install(authenticationPlugin())
 
         get("/airline/{icao}") {
-            val icao = call.parameters["icao"] ?: return@get call.respondText(
-                "Missing ICAO",
-                status = HttpStatusCode.BadRequest
+            handleFlightRequest(
+                context = this,
+                logger = logger,
+                requestName = "Airline Flights",
+                getRequest = { call.receive<FlightRequest.Airline>() },
+                processRequest = { request, _ -> flightService.getAirlineLight(request) },
+                notFoundMessage = "Airline not found"
             )
-            val result = service.getAirlineLight(icao)
-            call.respond(result)
         }
 
-        post("/data") {
-            val userId = call.getUserId()
-            val body = call.receive<FlightDataRequest>()
-            if (!body.callsign.matches(Regex("^[A-Z0-9]+$"))) {
-                return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid call sign"))
-            }
-
-            try {
-                log.info("Received request for flight data: $call")
-                val response = service.getFlightData(body, userId)
-                log.info("Response for flight data: $response")
-                if (response != null) {
-                    call.respond(response)
-                } else {
-                    call.respond(HttpStatusCode.NotFound, mapOf("error" to "Flight data not found"))
-                }
-                log.info("Returned Flight data request successfully")
-            } catch (e: Exception) {
-                log.error("Error getting flight data", e)
-                call.respond(HttpStatusCode.BadRequest, mapOf("error" to e.localizedMessage))
-            }
-        }
-
+        // Flight summary endpoint
         post("/summary") {
-            val userId = call.getUserId()
-            val body = call.receive<FlightSummaryRequest>()
-            if (!body.flightId.matches(Regex("^[A-Za-z0-9]+$"))) {
-                return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid flight ID"))
-            }
-
-            try {
-                log.info("Received request for flight summary: $call")
-                val response = service.getFlightSummary(body.flightId, userId)
-                log.info("Response for flight summary: $response")
-                if (response != null) {
-                    call.respond(response)
-                } else {
-                    call.respond(HttpStatusCode.NotFound, mapOf("error" to "Flight summary not found"))
-                }
-                log.info("Returned Flight summary request successfully")
-            } catch (e: Exception) {
-                log.error("Error getting flight summary", e)
-                call.respond(HttpStatusCode.BadRequest, mapOf("error" to e.localizedMessage))
-            }
+            handleFlightRequest(
+                context = this,
+                logger = logger,
+                requestName = "Flight Summary",
+                getRequest = { call.receive<FlightRequest.Summary>() },
+                processRequest = { request, userId -> flightService.getFlightSummary(request, userId) },
+                notFoundMessage = "Flight summary not found"
+            )
         }
 
-
-        get("/track/{id}") {
-            val id =
-                call.parameters["id"] ?: return@get call.respondText("Missing ID", status = HttpStatusCode.BadRequest)
-            val result = service.getFlightTrack(id)
-            call.respond(result ?: "No track found")
+        // Save flight endpoint
+        post("/save") {
+            handleFlightRequest(
+                context = this,
+                logger = logger,
+                requestName = "Save Flight Summary",
+                getRequest = { call.receive<FlightRequest.Save>() },
+                processRequest = { request, userId -> flightService.saveFlights(request, userId) },
+                notFoundMessage = "Could not save flight summary"
+            )
         }
+
+        // Get all flights endpoint
+        get("/allFlights") {
+            handleFlightRequest(
+                context = this,
+                logger = logger,
+                requestName = "All Flights",
+                getRequest = { FlightRequest.GetAllFlights },
+                processRequest = { _, userId -> flightService.getAllFlights(userId) },
+                notFoundMessage = "No flights found"
+            )
+        }
+
+        get("/allTracks") {
+            handleFlightRequest(
+                context = this,
+                logger = logger,
+                requestName = "All Flights",
+                getRequest = { FlightRequest.GetAllTracks },
+                processRequest = { request, userId -> flightService.getAllFlightTracks(request, userId) },
+                notFoundMessage = "No flights found"
+            )
+        }
+    }
+}
+
+/**
+ * Handles the processing of a flight request. It validates the request, logs relevant information, executes the
+ * processing logic, and sends an appropriate response back to the client.
+ *
+ * @param T The type of the flight request, which must extend [FlightRequest].
+ * @param R The type of the response object returned by the processing logic.
+ * @param context The [RoutingContext] used to access the application call and respond to the client.
+ * @param logger The logger used to log messages and errors during request processing.
+ * @param requestName A string representing the name of the request, used for logging purposes.
+ * @param getRequest A lambda function that provides an instance of the flight request.
+ * @param processRequest A lambda function that processes the validated flight request and returns a response or null.
+ *   The function takes the flight request and the user ID as parameters.
+ * @param notFoundMessage The error message returned to the client when the result of the request processing is null.
+ */
+private suspend inline fun <reified T : FlightRequest, reified R> handleFlightRequest(
+    context: RoutingContext,
+    logger: Logger,
+    requestName: String,
+    getRequest: () -> T,
+    processRequest: (T, String) -> R?,
+    notFoundMessage: String
+) {
+    val userId = context.call.getUserId()
+    val request = getRequest()
+
+    val validationErrors = request.validate()
+    if (validationErrors.isNotEmpty()) {
+        return context.call.respond(HttpStatusCode.BadRequest, mapOf("error" to validationErrors))
+    }
+
+    try {
+        logger.info("Processing $requestName request")
+
+        val response = processRequest(request, userId)
+        if (response != null) {
+            context.call.respond(response)
+            logger.info("$requestName request completed successfully")
+        } else {
+            context.call.respond(
+                HttpStatusCode.NotFound,
+                mapOf("error" to notFoundMessage)
+            )
+            logger.info("$requestName request resulted in not found")
+        }
+    } catch (e: Exception) {
+        logger.error("Error processing $requestName request: ${e.message}", e)
+        context.call.respond(
+            HttpStatusCode.BadRequest,
+            mapOf("error" to (e.localizedMessage ?: "Unknown error"))
+        )
     }
 }
