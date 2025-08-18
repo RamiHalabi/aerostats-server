@@ -7,21 +7,22 @@ import service.FlightService
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import io.ktor.util.logging.*
+import service.UserService
 
 fun Application.configureRouting(
     authClient: AuthClient,
-    service: FlightService, log: Logger) {
-
-
+    userService: UserService,
+    flightService: FlightService, log: Logger
+) {
     try {
-
-    routing {
-        flightRoutes(service, log)
-        authRoutes(
-            authClient,
-            log
-        )
-    }
+        routing {
+            flightRoutes(flightService, log)
+            authRoutes(
+                authClient,
+                userService,
+                log
+            )
+        }
         log.info("Routing configured successfully")
     } catch (e: Throwable) {
         log.error("Error configuring routing", e)

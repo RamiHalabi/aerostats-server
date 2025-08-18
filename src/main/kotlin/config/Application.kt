@@ -1,16 +1,16 @@
 package com.ramihalabi.config
 
 import AuthClient
-import event.Event
-import event.EventBus
 import config.configureMonitoring
 import config.configureRouting
 import io.ktor.server.application.*
+import mapper.FlightSummaryMapper
+import org.slf4j.Logger
 import repository.FlightDataRepository
+import repository.UserRepository
 import service.FR24API
 import service.FlightService
-import util.DateUtil
-
+import service.UserService
 
 fun main(args: Array<String>) {
     io.ktor.server.netty.EngineMain.main(args)
@@ -18,20 +18,27 @@ fun main(args: Array<String>) {
 
 fun Application.module() {
     log.info("Application module starting...")
-    EventBus.subscribe { event ->
-        when (event) {
-            is Event.FlightSaved -> log.info(this.javaClass.name, "Flight saved: ${event.fr24_id}")
-            is Event.FlightAlreadyKnown -> TODO()
-            is Event.FlightSaveFailed -> TODO()
-        }
-    }
-    val api = FR24API()
-    val authClient = AuthClient()
-    val dateUtil = DateUtil()
-    val repository = FlightDataRepository(authClient, dateUtil)
-    val service = FlightService(api, repository)
-    configureRouting(authClient, service, log)
+    val appDependencies = AppDependencies(log)
+
+    configureRouting(
+        appDependencies.authClient,
+        appDependencies.userService,
+        appDependencies.flightService,
+        log
+    )
     configureMonitoring()
     configureSerialization()
     configureSecurity()
+
+    log.info("Application module initialized successfully")
+}
+
+private class AppDependencies(log: Logger) {
+    val api = FR24API()
+    val authClient = AuthClient()
+    val flightSummaryMapper = FlightSummaryMapper()
+    val userRepository = UserRepository(authClient)
+    val flightRepository = FlightDataRepository(authClient, log, api)
+    val userService = UserService(userRepository)
+    val flightService = FlightService(flightRepository, flightSummaryMapper, log)
 }

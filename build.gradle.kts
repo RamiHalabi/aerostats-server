@@ -24,6 +24,7 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:auth-kt")
     implementation("io.github.jan-tennert.supabase:realtime-kt")
+    implementation("io.ktor:ktor-server-core:2.3.12") // Adjust version as needed
     implementation(libs.ktor.server.call.logging)
     implementation(libs.ktor.server.content.negotiation)
     implementation(libs.ktor.server.core)
