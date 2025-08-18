@@ -2,6 +2,7 @@ import config.Config
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.Apple
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
@@ -18,8 +19,16 @@ class AuthClient {
         ) {
             install(Postgrest)
             install(Auth) {
-                // no session here
             }
+        }
+    }
+
+    suspend fun signInWithApple(idToken: String) {
+        val client = createUnauthenticatedClient()
+        try {
+            return client.auth.signInWith(Apple, idToken)
+        } catch (e: Exception) {
+            throw Exception("Apple sign-in failed: ${e.message}")
         }
     }
 
