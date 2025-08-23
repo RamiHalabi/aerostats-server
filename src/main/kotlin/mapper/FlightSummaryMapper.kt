@@ -1,57 +1,66 @@
 package mapper
 
-import kotlinx.serialization.Serializable
+import entity.FlightSummaryEntity
 import model.FlightSummaryModel
 
-@Serializable
-data class FlightSummaryEntity(
-    val fr24_id: String,
-    val flight: String,
-    val callsign: String,
-    val operating_as: String,
-    val painted_as: String,
-    val type: String,
-    val reg: String,
-    val orig_icao: String,
-    val datetime_takeoff: String,
-    val runway_takeoff: String,
-    val dest_icao: String,
-    val dest_icao_actual: String,
-    val datetime_landed: String?,
-    val runway_landed: String?,
-    val flight_time: String?,
-    val actual_distance: Double,
-    val circle_distance: Double,
-    val category: String,
-    val first_seen: String,
-    val last_seen: String,
-    val flight_ended: Boolean
-)
-
-object FlightSummaryMapper {
+class FlightSummaryMapper {
     fun fromModel(model: FlightSummaryModel): FlightSummaryEntity {
         return FlightSummaryEntity(
-            fr24_id = model.fr24_id,
+            fr24_id = model.fr24Id,
             flight = model.flight,
             callsign = model.callsign,
-            operating_as = model.operating_as,
-            painted_as = model.painted_as,
+            operating_as = model.operatingAs,
+            painted_as = model.paintedAs,
             type = model.type,
             reg = model.reg,
-            orig_icao = model.orig_icao,
-            datetime_takeoff = model.datetime_takeoff,
-            runway_takeoff = model.runway_takeoff,
+            orig_icao = model.origIcao,
+            datetime_takeoff = model.datetimeTakeoff,
+            runway_takeoff = model.runwayTakeoff,
             dest_icao = model.destIcao,
-            dest_icao_actual = model.dest_icao_actual,
-            datetime_landed = model.datetime_landed,
-            runway_landed = model.runway_landed,
-            flight_time = model.flight_time,
-            actual_distance = model.actual_distance,
-            circle_distance = model.circle_distance,
+            dest_icao_actual = model.destIcaoActual,
+            datetime_landed = model.datetimeLanded,
+            runway_landed = model.runwayLanded,
+            flight_time = model.flightTime,
+            actual_distance = model.actualDistance,
+            circle_distance = model.circleDistance,
             category = model.category,
-            first_seen = model.first_seen,
-            last_seen = model.last_seen,
-            flight_ended = model.flight_ended
+            first_seen = model.firstSeen,
+            last_seen = model.lastSeen,
+            flight_ended = model.flightEnded
         )
+    }
+
+    fun fromEntity(entity: FlightSummaryEntity): FlightSummaryModel {
+        return FlightSummaryModel(
+            fr24Id = entity.fr24_id,
+            flight = entity.flight,
+            callsign = entity.callsign,
+            operatingAs = entity.operating_as,
+            paintedAs = entity.painted_as,
+            type = entity.type,
+            reg = entity.reg,
+            origIcao = entity.orig_icao,
+            datetimeTakeoff = entity.datetime_takeoff,
+            runwayTakeoff = entity.runway_takeoff,
+            destIcao = entity.dest_icao,
+            destIcaoActual = entity.dest_icao_actual,
+            datetimeLanded = entity.datetime_landed,
+            runwayLanded = entity.runway_landed,
+            flightTime = entity.flight_time,
+            actualDistance = entity.actual_distance,
+            circleDistance = entity.circle_distance,
+            category = entity.category,
+            firstSeen = entity.first_seen,
+            lastSeen = entity.last_seen,
+            flightEnded = entity.flight_ended
+        )
+    }
+
+    fun fromModelList(models: List<FlightSummaryModel>): List<FlightSummaryEntity> {
+        return models.map { fromModel(it) }
+    }
+
+    fun fromEntityList(entities: List<FlightSummaryEntity>): List<FlightSummaryModel> {
+        return entities.map { fromEntity(it) }
     }
 }
