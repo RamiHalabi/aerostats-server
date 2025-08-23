@@ -1,7 +1,7 @@
 package repository
 
 import AuthClient
-import Entity.FlightSummaryEntity
+import entity.FlightSummaryEntity
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns

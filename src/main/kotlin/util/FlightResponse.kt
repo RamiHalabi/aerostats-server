@@ -1,6 +1,6 @@
 package util
 
-import Entity.FlightSummaryEntity
+import entity.FlightSummaryEntity
 import kotlinx.serialization.Serializable
 
 

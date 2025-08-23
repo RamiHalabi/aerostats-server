@@ -1,6 +1,6 @@
 package service
 
-import Entity.FlightSummaryEntity
+import entity.FlightSummaryEntity
 import config.Config
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
