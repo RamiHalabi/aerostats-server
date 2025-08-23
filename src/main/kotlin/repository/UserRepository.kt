@@ -1,7 +1,7 @@
 package repository
 
 import AuthClient
-import Entity.UserInfoEntity
+import entity.UserInfoEntity
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

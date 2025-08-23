@@ -1,6 +1,6 @@
 package mapper
 
-import Entity.UserInfoEntity
+import entity.UserInfoEntity
 import model.UserInfoModel
 
 class UserInfoMapper {
