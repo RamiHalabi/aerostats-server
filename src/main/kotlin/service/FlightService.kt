@@ -82,13 +82,9 @@ class FlightService(
     }
     
      override suspend fun getAllFlightTracks(): List<FlightTracksModel?> {
+         val flightIds = repository.getAllFlightIds()
 
-        // TODO: IMPLEMENT GETALLTRACKS, CURRENTLY ONLY HAVE SINGLE
-         // first get user flight ids
-         val flights = repository.getAllFlightIds()
-         // next get tracks for all flights.
-
-        return repository.getAllTracks(flights)
+        return repository.getAllTracks(flightIds)
             .fold(
                 onSuccess = { entities ->
                     entities

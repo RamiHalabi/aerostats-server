@@ -81,6 +81,7 @@ sealed class FlightRequest : FlightRequestValidator {
         override fun validate(): List<String> = emptyList()
     }
 
+    @Serializable
     class Track(
         val flightId: String
     ) : FlightRequest() {

@@ -1,6 +1,7 @@
 package repository
 
 import AuthClient
+import entity.FlightIdEntity
 import entity.FlightSummaryEntity
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
@@ -136,15 +137,17 @@ class FlightDataRepository(
     }
 
     override suspend fun getAllFlightIds(): List<FlightRequest.Track> {
+        val userId = getUserIdFromContext()
         val response = withContext(Dispatchers.IO) {
-            client.postgrest[TABLE_USER_FLIGHTS]
-                .select(columns = Columns.raw("""$TABLE_FLIGHT_SUMMARY(flight_id)""")) {
-                    filter {
-                        eq("user_id", getUserIdFromContext())
-                    }
+            client.from(TABLE_USER_FLIGHTS).select(columns = Columns.raw("flight_id")) {
+                filter {
+                    eq("user_id", userId)
                 }
+            }
         }
-        return response.decodeList()
+
+        val flightTrackEntities: List<FlightIdEntity> = Json.decodeFromString(response.data)
+        return flightTrackEntities.map { FlightRequest.Track(it.flight_id) }
     }
 
     override suspend fun getTrack(id: FlightRequest.Track): Result<FlightTracksModel?> = runCatching {
