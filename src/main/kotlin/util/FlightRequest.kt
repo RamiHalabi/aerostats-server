@@ -6,7 +6,8 @@ import model.FlightSummaryModel
 @Serializable
 sealed class FlightRequest : FlightRequestValidator {
     abstract override fun validate(): List<String>
-    override fun isValidCallsign(callsign: String): Boolean = callsign.matches(FlightRequestValidator.CALLSIGN_PATTERN)
+    override fun isValidCallsign(callsign: String): Boolean =
+        callsign.split(",").all { it.trim().matches(FlightRequestValidator.CALLSIGN_PATTERN) }
     override fun isValidIcao(icao: String): Boolean = icao.matches(FlightRequestValidator.ICAO_PATTERN)
     override fun isValidFlightId(flightId: String): Boolean = flightId.matches(FlightRequestValidator.FR24ID_PATTERN)
     override fun isValidAirlineIcao(icao: String): Boolean = icao.matches(FlightRequestValidator.AIRLINE_ICAO_PATTERN)
