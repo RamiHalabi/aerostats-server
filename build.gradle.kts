@@ -34,10 +34,8 @@ dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.apache)
     implementation(libs.ktor.server.netty)
-    implementation(libs.logback.classic)
     implementation(libs.ktor.server.config.yaml)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
     implementation( "org.slf4j:slf4j-api:2.0.9")
-    implementation( "ch.qos.logback:logback-classic:1.4.11")
 }
