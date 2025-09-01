@@ -6,6 +6,8 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import service.FlightService
 import io.ktor.util.logging.*
+import kotlinx.coroutines.withContext
+import plugin.UserIdContext
 import plugin.authenticationPlugin
 import plugin.getUserId
 import util.FlightRequest
@@ -32,7 +34,7 @@ fun Route.flightRoutes(flightService: FlightService, logger: Logger) {
                 logger = logger,
                 requestName = "Airline Flights",
                 getRequest = { call.receive<FlightRequest.Airline>() },
-                processRequest = { request, _ -> flightService.getAirlineLight(request) },
+                processRequest = { request -> flightService.getAirlineLight(request) },
                 notFoundMessage = "Airline not found"
             )
         }
@@ -44,7 +46,7 @@ fun Route.flightRoutes(flightService: FlightService, logger: Logger) {
                 logger = logger,
                 requestName = "Flight Summary",
                 getRequest = { call.receive<FlightRequest.Summary>() },
-                processRequest = { request, userId -> flightService.getFlightSummary(request, userId) },
+                processRequest = { request -> flightService.getFlightSummary(request) },
                 notFoundMessage = "Flight summary not found"
             )
         }
@@ -56,7 +58,7 @@ fun Route.flightRoutes(flightService: FlightService, logger: Logger) {
                 logger = logger,
                 requestName = "Save Flight Summary",
                 getRequest = { call.receive<FlightRequest.Save>() },
-                processRequest = { request, userId -> flightService.saveFlights(request, userId) },
+                processRequest = { request -> flightService.saveFlights(request) },
                 notFoundMessage = "Could not save flight summary"
             )
         }
@@ -68,7 +70,7 @@ fun Route.flightRoutes(flightService: FlightService, logger: Logger) {
                 logger = logger,
                 requestName = "All Flights",
                 getRequest = { FlightRequest.GetAllFlights },
-                processRequest = { _, userId -> flightService.getAllFlights(userId) },
+                processRequest = { _ -> flightService.getAllFlights() },
                 notFoundMessage = "No flights found"
             )
         }
@@ -77,10 +79,10 @@ fun Route.flightRoutes(flightService: FlightService, logger: Logger) {
             handleFlightRequest(
                 context = this,
                 logger = logger,
-                requestName = "All Flights",
+                requestName = "All Tracks",
                 getRequest = { FlightRequest.GetAllTracks },
-                processRequest = { request, userId -> flightService.getAllFlightTracks(request, userId) },
-                notFoundMessage = "No flights found"
+                processRequest = { _ -> flightService.getAllFlightTracks() },
+                notFoundMessage = "No tracks found"
             )
         }
     }
@@ -105,7 +107,7 @@ private suspend inline fun <reified T : FlightRequest, reified R> handleFlightRe
     logger: Logger,
     requestName: String,
     getRequest: () -> T,
-    processRequest: (T, String) -> R?,
+    crossinline processRequest: suspend (T) -> R?,
     notFoundMessage: String
 ) {
     val userId = context.call.getUserId()
@@ -119,7 +121,10 @@ private suspend inline fun <reified T : FlightRequest, reified R> handleFlightRe
     try {
         logger.info("Processing $requestName request")
 
-        val response = processRequest(request, userId)
+        val response = withContext(context.call.coroutineContext + UserIdContext(userId)) {
+            processRequest(request)
+        }
+
         if (response != null) {
             context.call.respond(response)
             logger.info("$requestName request completed successfully")

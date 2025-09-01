@@ -3,16 +3,17 @@ package service
 import io.ktor.util.logging.*
 import mapper.FlightSummaryMapper
 import model.*
+import plugin.getUserIdFromContext
 import repository.FlightDataRepository
 import util.FlightRequest
 
 interface FlightServiceInterface {
     suspend fun getAirlineLight(icao: FlightRequest.Airline): AirlinesLightModel?
-    suspend fun getFlightSummary(flight: FlightRequest.Summary, userId: String): List<FlightSummaryModel>?
-    suspend fun getAllFlights(userId: String): List<FlightSummaryModel>
-    suspend fun getFlightTrack(flight: FlightRequest.Track, userId: String): FlightTracksModel?
-    suspend fun getAllFlightTracks(flightIds: FlightRequest.GetAllTracks, userId: String): List<FlightTracksModel>
-    suspend fun saveFlights(request: FlightRequest.Save, userId: String): List<FlightSummaryModel>?
+    suspend fun getFlightSummary(flight: FlightRequest.Summary): List<FlightSummaryModel>?
+    suspend fun getAllFlights(): List<FlightSummaryModel>
+    suspend fun getFlightTrack(flight: FlightRequest.Track): FlightTracksModel?
+    suspend fun getAllFlightTracks(): List<FlightTracksModel?>
+    suspend fun saveFlights(request: FlightRequest.Save): List<FlightSummaryModel>?
 }
 
 
@@ -36,8 +37,8 @@ class FlightService(
 
     }
 
-    override suspend fun getFlightSummary(flight: FlightRequest.Summary, userId: String): List<FlightSummaryModel>? {
-        val result = repository.getFlightSummary(flight, userId)
+    override suspend fun getFlightSummary(flight: FlightRequest.Summary): List<FlightSummaryModel>? {
+        val result = repository.getFlightSummary(flight)
 
         return if (result.isSuccess) {
             result.getOrNull()?.let { flightSummaryMapper.fromEntityList(it) }
@@ -47,9 +48,10 @@ class FlightService(
         }
     }
 
-    override suspend fun getAllFlights(userId: String): List<FlightSummaryModel> {
+    override suspend fun getAllFlights(): List<FlightSummaryModel> {
+        val userId = getUserIdFromContext()
 
-        return repository.getAllFlights(userId)
+        return repository.getAllFlights()
             .fold(
                 onSuccess = { entities ->
                     entities?.map { flightSummaryMapper.fromEntity(it) } ?: emptyList()
@@ -61,7 +63,7 @@ class FlightService(
             )
     }
 
-    override suspend fun getFlightTrack(flight: FlightRequest.Track, userId: String): FlightTracksModel? {
+    override suspend fun getFlightTrack(flight: FlightRequest.Track): FlightTracksModel? {
         val result = repository.getTrack(flight)
 
         return if (result.isSuccess) {
@@ -79,35 +81,41 @@ class FlightService(
         }
     }
     
-    override suspend fun getAllFlightTracks(flightIds: FlightRequest.GetAllTracks, userId: String): List<FlightTracksModel> {
+     override suspend fun getAllFlightTracks(): List<FlightTracksModel?> {
 
         // TODO: IMPLEMENT GETALLTRACKS, CURRENTLY ONLY HAVE SINGLE
-        return repository.getAllTracks(flights, userId)
+         // first get user flight ids
+         val flights = repository.getAllFlightIds()
+         // next get tracks for all flights.
+
+        return repository.getAllTracks(flights)
             .fold(
                 onSuccess = { entities ->
-                    entities?.map { flightSummaryMapper.fromEntity(it) } ?: emptyList()
+                    entities
                 },
                 onFailure = { error ->
-                    logger.error("Failed to retrieve flights for user $userId", error)
+                    logger.error("Failed to retrieve flights for user ${getUserIdFromContext()}", error)
                     emptyList()
                 }
             )
     }
 
-    override suspend fun saveFlights(request: FlightRequest.Save, userId: String): List<FlightSummaryModel>? {
+    override suspend fun saveFlights(request: FlightRequest.Save): List<FlightSummaryModel>? {
+
+        val userId = getUserIdFromContext()
         // Step 1: Save flight summaries
         val flightSummaryEntities = flightSummaryMapper.fromModelList(request.flights)
-        val flightSummaryResult = repository.saveFlightSummaries(flightSummaryEntities, userId)
+        val flightSummaryResult = repository.saveFlightSummaries(flightSummaryEntities)
 
         // Step 2: Save flight tracks
         val flightIds = flightSummaryEntities.map { it.fr24_id }
         val trackRequests = flightIds.filterNotNull().filter { it.isNotEmpty() }.map { FlightRequest.Track(it) }
-        val tracks = trackRequests.mapNotNull { getFlightTrack(it, userId) }
+        val tracks = trackRequests.mapNotNull { getFlightTrack(it) }
         val tracksSaveResult = repository.saveTracks(tracks)
 
         // Step 3: Link flights to user
         val userFlightResult = flightSummaryEntities.mapNotNull { it.fr24_id }.filter { it.isNotEmpty() }
-            .let { repository.saveUserFlights(it, userId) }
+            .let { repository.saveUserFlights(it) }
 
 
 

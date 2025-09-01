@@ -14,15 +14,17 @@ import kotlinx.serialization.json.jsonObject
 import model.*
 import util.FlightRequest
 import io.ktor.util.logging.*
+import plugin.getUserIdFromContext
 import service.FR24API
 
 interface FlightRepository {
     suspend fun getAirline(icao: FlightRequest.Airline): Result<AirlinesLightModel?>
     suspend fun saveAirline(airline: AirlinesLightModel): Result<Unit>
-    suspend fun saveUserFlights(flightIds: List<String>, userId: String): Result<FlightSaveResult.UserFlightsSaved>
-    suspend fun getFlightSummary(flight: FlightRequest.Summary, userId: String): Result<List<FlightSummaryEntity>?>
-    suspend fun saveFlightSummaries(flights: List<FlightSummaryEntity>, userId: String): Result<FlightSaveResult.ListSaved>
-    suspend fun getAllFlights(userId: String): Result<List<FlightSummaryEntity>?>
+    suspend fun saveUserFlights(flightIds: List<String>): Result<FlightSaveResult.UserFlightsSaved>
+    suspend fun getFlightSummary(flight: FlightRequest.Summary): Result<List<FlightSummaryEntity>?>
+    suspend fun saveFlightSummaries(flights: List<FlightSummaryEntity>): Result<FlightSaveResult.ListSaved>
+    suspend fun getAllFlights(): Result<List<FlightSummaryEntity>?>
+    suspend fun getAllFlightIds(): List<FlightRequest.Track>
     suspend fun getTrack(id: FlightRequest.Track): Result<FlightTracksModel?>
     suspend fun getAllTracks(flightIds: List<FlightRequest.Track>): Result<List<FlightTracksModel?>>
     suspend fun saveTracks(tracks: List<FlightTracksModel>): Result<Unit>
@@ -54,8 +56,7 @@ class FlightDataRepository(
         Result.success(Unit)
 
     override suspend fun saveFlightSummaries(
-        flights: List<FlightSummaryEntity>,
-        userId: String
+        flights: List<FlightSummaryEntity>
     ): Result<FlightSaveResult.ListSaved> = runCatching {
 
         client.from(TABLE_FLIGHT_SUMMARY).upsert(flights)
@@ -66,12 +67,11 @@ class FlightDataRepository(
     }
 
     override suspend fun saveUserFlights(
-        flightIds: List<String>,
-        userId: String
+        flightIds: List<String>
     ): Result<FlightSaveResult.UserFlightsSaved> = runCatching {
         val userFlights = flightIds.map { entity ->
             mapOf(
-                "user_id" to userId,
+                "user_id" to getUserIdFromContext(),
                 "flight_id" to entity
             )
         }
@@ -80,8 +80,7 @@ class FlightDataRepository(
     }
 
     override suspend fun getFlightSummary(
-        flight: FlightRequest.Summary,
-        userId: String
+        flight: FlightRequest.Summary
     ): Result<List<FlightSummaryEntity>?> = runCatching {
         val response = withContext(Dispatchers.IO) {
             client.from(TABLE_FLIGHT_SUMMARY).select {
@@ -114,12 +113,12 @@ class FlightDataRepository(
         logger.error("Error retrieving flight summary", e)
     }
 
-    override suspend fun getAllFlights(userId: String): Result<List<FlightSummaryEntity>?> = runCatching {
+    override suspend fun getAllFlights(): Result<List<FlightSummaryEntity>?> = runCatching {
         val response = withContext(Dispatchers.IO) {
             client.postgrest[TABLE_USER_FLIGHTS]
                 .select(columns = Columns.raw("""$TABLE_FLIGHT_SUMMARY(*)""")) {
                     filter {
-                        eq("user_id", userId)
+                        eq("user_id", getUserIdFromContext())
                     }
                 }
         }
@@ -134,6 +133,18 @@ class FlightDataRepository(
         flightSummaryEntities
     }.onFailure { e ->
         logger.error("Error retrieving all flights", e)
+    }
+
+    override suspend fun getAllFlightIds(): List<FlightRequest.Track> {
+        val response = withContext(Dispatchers.IO) {
+            client.postgrest[TABLE_USER_FLIGHTS]
+                .select(columns = Columns.raw("""$TABLE_FLIGHT_SUMMARY(flight_id)""")) {
+                    filter {
+                        eq("user_id", getUserIdFromContext())
+                    }
+                }
+        }
+        return response.decodeList()
     }
 
     override suspend fun getTrack(id: FlightRequest.Track): Result<FlightTracksModel?> = runCatching {
