@@ -1,4 +1,4 @@
-package com.ramihalabi.config
+package config
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
