@@ -3,6 +3,7 @@ package com.ramihalabi.config
 import AuthClient
 import config.configureMonitoring
 import config.configureRouting
+import config.configureSecurity
 import io.ktor.server.application.*
 import mapper.FlightSummaryMapper
 import org.slf4j.Logger
