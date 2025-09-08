@@ -15,6 +15,11 @@ import kotlinx.serialization.json.jsonObject
 import model.*
 import util.FlightRequest
 import io.ktor.util.logging.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import plugin.getUserIdFromContext
 import service.FR24API
 
@@ -29,6 +34,7 @@ interface FlightRepository {
     suspend fun getTrack(id: FlightRequest.Track): Result<FlightTracksModel?>
     suspend fun getAllTracks(flightIds: List<FlightRequest.Track>): Result<List<FlightTracksModel?>>
     suspend fun saveTracks(tracks: List<FlightTracksModel>): Result<Unit>
+    suspend fun fetchTracksFromApi(missingFlightIds: List<FlightRequest.Track>): Map<String, FlightTracksModel?>
 }
 
 sealed class FlightSaveResult {
@@ -137,11 +143,10 @@ class FlightDataRepository(
     }
 
     override suspend fun getAllFlightIds(): List<FlightRequest.Track> {
-        val userId = getUserIdFromContext()
         val response = withContext(Dispatchers.IO) {
             client.from(TABLE_USER_FLIGHTS).select(columns = Columns.raw("flight_id")) {
                 filter {
-                    eq("user_id", userId)
+                    eq("user_id", getUserIdFromContext())
                 }
             }
         }
@@ -163,7 +168,7 @@ class FlightDataRepository(
         if (response.data == EMPTY_RESPONSE) {
             logger.info("No flight tracks found in DB, fetching from API")
             val flights = api.flightTracks(id)
-            if (!flights?.fr24_id.isNullOrEmpty() && flights?.tracks?.isNotEmpty() == true) {
+            if (!flights?.fr24_id.isNullOrEmpty() && flights.tracks.isNotEmpty()) {
                 flights
             } else {
                 null
@@ -178,7 +183,7 @@ class FlightDataRepository(
             } else {
                 logger.info("No flight tracks found in DB, fetching from API")
                 val flights = api.flightTracks(id)
-                if (!flights?.fr24_id.isNullOrEmpty() && flights?.tracks?.isNotEmpty() == true) {
+                if (!flights?.fr24_id.isNullOrEmpty() && flights.tracks.isNotEmpty()) {
                     flights
                 } else {
                     null
@@ -191,32 +196,26 @@ class FlightDataRepository(
 
     override suspend fun getAllTracks(flightIds: List<FlightRequest.Track>): Result<List<FlightTracksModel?>> {
         return try {
-            val result = mutableListOf<FlightTracksModel?>()
-
-            // Process each flight ID
-            for (trackRequest in flightIds) {
-                val id = trackRequest.flightId
-
-                // Try to get track from database first
-                val dbResponse = withContext(Dispatchers.IO) {
-                    client.from(TABLE_FLIGHT_TRACKS).select {
-                        filter {
-                            eq("fr24_id", id)
-                        }
+            val dbResponse = withContext(Dispatchers.IO) {
+                client.from(TABLE_FLIGHT_TRACKS).select {
+                    filter {
+                        "fr24_id" in flightIds.map { it.flightId }
                     }
                 }
-
-                val track = dbResponse.decodeList<FlightTracksModel>().firstOrNull()
-
-                if (track != null) {
-                    result.add(track)
-                } else {
-                    val apiResult = runCatching { api.flightTracks(trackRequest) }
-                    apiResult.onSuccess { result.add(it) }
-                    apiResult.onFailure { result.add(null) }
-                }
             }
-            Result.success(result)
+
+            val dbTracks: List<FlightTracksModel> = dbResponse.decodeList<FlightTracksModel>()
+            val trackMap: Map<String, FlightTracksModel> = dbTracks.associateBy { it.fr24_id }
+            val missingFlightIds = flightIds.filter { trackMap[it.flightId] == null }
+            val apiTracks = fetchTracksFromApi(missingFlightIds)
+
+            // Combine results: DB hits + API hits/failures
+            val allTracks: List<FlightTracksModel?> = flightIds.map { trackRequest ->
+                (trackMap[trackRequest.flightId] ?: apiTracks[trackRequest.flightId])
+            }
+
+            saveTracks(apiTracks.values.filterNotNull())
+            Result.success(allTracks)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -225,7 +224,7 @@ class FlightDataRepository(
     override suspend fun saveTracks(tracks: List<FlightTracksModel>): Result<Unit> = runCatching {
         withContext(Dispatchers.IO) {
             client.postgrest.from(TABLE_FLIGHT_TRACKS)
-                .insert(tracks)
+                .upsert(tracks)
             tracks.forEach {
                 logger.debug("Flight track ${it.fr24_id} saved to database")
             }
@@ -234,4 +233,24 @@ class FlightDataRepository(
         logger.error("Failed to save flight track: ${e.message}", e)
     }
 
+    /**
+     *  Need a way to batch send requests to FR24 api so that we don't overload requests per min (30).
+     */
+
+    override suspend fun fetchTracksFromApi(missingFlightIds: List<FlightRequest.Track>): Map<String, FlightTracksModel?> {
+        val semaphore = Semaphore(permits = 5)
+
+        return coroutineScope {
+            val deferredResults = missingFlightIds.map { trackRequest ->
+                async {
+                    semaphore.withPermit {
+                        println("Fetching missing track: ${trackRequest.flightId}")
+                        val apiResult = runCatching { api.flightTracks(trackRequest) }.getOrNull()
+                        trackRequest.flightId to apiResult
+                    }
+                }
+            }
+            deferredResults.awaitAll().toMap()
+        }
+    }
 }
