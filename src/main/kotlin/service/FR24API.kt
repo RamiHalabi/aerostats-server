@@ -6,7 +6,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import model.*
-import util.DateUtil
 import util.FlightRequest
 import util.FlightResponse
 import java.net.HttpURLConnection
@@ -79,11 +78,10 @@ class FR24API {
      * @return A list of flight summary entities representing the relevant flight details, or null if no data is available or an error occurs.
      */
     suspend fun flightSummaryFull(flight: FlightRequest.Summary): List<FlightSummaryEntity>? {
-        val dateUtil = DateUtil()
         val url = "$BASE_URL${FLIGHT_SUMMARY_FULL_URL
                 .replace("{callsigns}", flight.callsign)
-                .replace("{dateTimeFrom}", dateUtil.formatToDateTimeStamp(flight.datetimeFrom, false))
-                .replace("{dateTimeTo}", dateUtil.formatToDateTimeStamp(flight.datetimeTo, true))
+                .replace("{dateTimeFrom}", flight.datetimeFrom)
+                .replace("{dateTimeTo}", flight.datetimeTo)
         }"
         /**
           TODO: MULTIPLE FLIGHTS RETURNS FINE W NULL BUT IF ONLY 1 FLIGHT, ERRORS OUT AND RETURNS NOTHING.
