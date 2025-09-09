@@ -35,11 +35,12 @@ fun Application.module() {
 }
 
 private class AppDependencies(log: Logger) {
-    val api = FR24API()
+    val fr24api = FR24API()
     val authClient = AuthClient()
+    val flightDao: dao.FlightDao = dao.SupabaseFlightDao(authClient)
     val flightSummaryMapper = FlightSummaryMapper()
     val userRepository = UserRepository(authClient)
-    val flightRepository = FlightDataRepository(authClient, log, api)
+    val flightRepository = FlightDataRepository(log, flightDao, fr24api)
     val userService = UserService(userRepository)
     val flightService = FlightService(flightRepository, flightSummaryMapper, log)
 }
