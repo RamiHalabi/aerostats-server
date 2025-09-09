@@ -12,6 +12,7 @@ import repository.UserRepository
 import service.FR24API
 import service.FlightService
 import service.UserService
+import util.DateUtil
 
 fun main(args: Array<String>) {
     io.ktor.server.netty.EngineMain.main(args)
@@ -37,10 +38,11 @@ fun Application.module() {
 private class AppDependencies(log: Logger) {
     val fr24api = FR24API()
     val authClient = AuthClient()
+    val dateUtil = DateUtil()
     val flightDao: dao.FlightDao = dao.SupabaseFlightDao(authClient)
     val flightSummaryMapper = FlightSummaryMapper()
     val userRepository = UserRepository(authClient)
     val flightRepository = FlightDataRepository(log, flightDao, fr24api)
     val userService = UserService(userRepository)
-    val flightService = FlightService(flightRepository, flightSummaryMapper, log)
+    val flightService = FlightService(flightRepository, flightSummaryMapper, dateUtil, log)
 }

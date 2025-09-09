@@ -5,6 +5,7 @@ import mapper.FlightSummaryMapper
 import model.*
 import plugin.getUserIdFromContext
 import repository.FlightDataRepository
+import util.DateUtil
 import util.FlightRequest
 
 interface FlightServiceInterface {
@@ -20,6 +21,7 @@ interface FlightServiceInterface {
 class FlightService(
     private val repository: FlightDataRepository,
     private val flightSummaryMapper: FlightSummaryMapper,
+    private val dateUtil: DateUtil,
     private val logger: Logger
 ) : FlightServiceInterface {
     override suspend fun getAirlineLight(icao: FlightRequest.Airline): AirlinesLightModel? {
@@ -38,7 +40,13 @@ class FlightService(
     }
 
     override suspend fun getFlightSummary(flight: FlightRequest.Summary): List<FlightSummaryModel>? {
-        val result = repository.getFlightSummary(flight)
+
+        // first format date from user Locale to UTC then get flight from repository
+        val formattedFlight = flight.copy(
+            datetimeFrom = dateUtil.formatToDateTimeStamp(flight.datetimeFrom, false),
+            datetimeTo = dateUtil.formatToDateTimeStamp(flight.datetimeTo, true)
+        )
+        val result = repository.getFlightSummary(formattedFlight)
 
         return if (result.isSuccess) {
             result.getOrNull()?.let { flightSummaryMapper.fromEntityList(it) }
