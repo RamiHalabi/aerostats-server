@@ -112,7 +112,6 @@ private suspend inline fun <reified T : FlightRequest, reified R> handleFlightRe
 ) {
     val userId = context.call.getUserId()
     val request = getRequest()
-
     val validationErrors = request.validate()
     if (validationErrors.isNotEmpty()) {
         return context.call.respond(HttpStatusCode.BadRequest, mapOf("error" to validationErrors))
