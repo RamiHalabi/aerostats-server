@@ -2,8 +2,6 @@ package repository
 
 import dao.FlightDao
 import entity.FlightSummaryEntity
-import model.*
-import util.FlightRequest
 import io.ktor.util.logging.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -11,8 +9,11 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import model.AirlinesLightModel
+import model.FlightTracksModel
 import plugin.getUserIdFromContext
 import service.FR24API
+import util.FlightRequest
 
 interface FlightRepository {
     suspend fun getAirline(icao: FlightRequest.Airline): Result<AirlinesLightModel?>
@@ -21,7 +22,7 @@ interface FlightRepository {
     suspend fun getFlightSummary(flight: FlightRequest.Summary): Result<List<FlightSummaryEntity>?>
     suspend fun saveFlightSummaries(flights: List<FlightSummaryEntity>): Result<FlightSaveResult.ListSaved>
     suspend fun getAllFlights(): Result<List<FlightSummaryEntity>?>
-    suspend fun getAllFlightIds(): List<FlightRequest.Track>
+    suspend fun getAllFlightIds(): Result<List<FlightRequest.Track>?>
     suspend fun getTrack(id: FlightRequest.Track): Result<FlightTracksModel?>
     suspend fun getAllTracks(flightIds: List<FlightRequest.Track>): Result<List<FlightTracksModel?>>
     suspend fun saveTracks(tracks: List<FlightTracksModel>): Result<Unit>
@@ -33,16 +34,12 @@ sealed class FlightSaveResult {
 }
 
 class FlightDataRepository(
-    private val logger: Logger,
-    private val flightDao: FlightDao,
-    private val fr24api: FR24API
+    private val logger: Logger, private val flightDao: FlightDao, private val fr24api: FR24API
 ) : FlightRepository {
 
-    override suspend fun getAirline(icao: FlightRequest.Airline): Result<AirlinesLightModel?> =
-        Result.success(null)
+    override suspend fun getAirline(icao: FlightRequest.Airline): Result<AirlinesLightModel?> = Result.success(null)
 
-    override suspend fun saveAirline(airline: AirlinesLightModel): Result<Unit> =
-        Result.success(Unit)
+    override suspend fun saveAirline(airline: AirlinesLightModel): Result<Unit> = Result.success(Unit)
 
     override suspend fun saveFlightSummaries(
         flights: List<FlightSummaryEntity>
@@ -58,12 +55,13 @@ class FlightDataRepository(
     ): Result<FlightSaveResult.UserFlightsSaved> = runCatching {
         val userFlights = flightIds.map { entity ->
             mapOf(
-                "user_id" to getUserIdFromContext(),
-                "flight_id" to entity
+                "user_id" to getUserIdFromContext(), "flight_id" to entity
             )
         }
         flightDao.saveUserFlights(userFlights)
         FlightSaveResult.UserFlightsSaved(flightIds, isNew = true)
+    }.onFailure { e ->
+        logger.error("Error saving user flight", e)
     }
 
     override suspend fun getFlightSummary(
@@ -89,10 +87,10 @@ class FlightDataRepository(
         logger.error("Error retrieving all flights", e)
     }
 
-
-    override suspend fun getAllFlightIds(): List<FlightRequest.Track> {
-        val dbResponse = flightDao.getAllFlightIds()
-        return dbResponse.map { FlightRequest.Track(it.flight_id) }
+    override suspend fun getAllFlightIds(): Result<List<FlightRequest.Track>?> = runCatching {
+        flightDao.getAllFlightIds().map { FlightRequest.Track(it.flight_id) }
+    }.onFailure { e ->
+        logger.error("Error retrieving all flight ids", e)
     }
 
     override suspend fun getTrack(id: FlightRequest.Track): Result<FlightTracksModel?> = runCatching {
@@ -109,12 +107,11 @@ class FlightDataRepository(
             }
         }
     }.onFailure { e ->
-        logger.error("Error Retrieving Tracks", e)
+        logger.error("Error Retrieving Tracks for flight ${id.flightId}", e)
     }
 
     override suspend fun getAllTracks(flightIds: List<FlightRequest.Track>): Result<List<FlightTracksModel?>> {
         return try {
-
             val dbTracks = flightDao.getMultipleFlightTracks(flightIds)
             val trackMap: Map<String, FlightTracksModel>? = dbTracks?.associateBy { it.fr24_id }
             val missingFlightIds = flightIds.filter { trackMap?.get(it.flightId) == null }
